@@ -16,3 +16,14 @@ These functions basically make sure, that the top bar has a `Panel._leftBox`, `P
 ### Adding Items to the Top Bar
 
 Extensions can add new items to the top bar using `Panel.addToStatusArea()`.
+
+### About `Panel._addToPanelBox`
+
+#### Indicator
+
+`Panel._somethingBox` is an instance of [`St.BoxLayout`](https://gjs-docs.gnome.org/st10~1.0_api/st.boxlayout).  
+`Panel._addToPanelBox`, then uses `Panel._somethingBox.insert_child_at_index` (which is a method `Panel._somethingBox` inherits from [`Clutter.Actor`](https://gjs-docs.gnome.org/clutter7/clutter.actor)) to add an indicator container to the relevant box.
+
+#### Role
+
+`Panel._addToPanelBox` then saves the indicator into `Panel.statusArea` using the role as an index.
