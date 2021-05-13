@@ -3,6 +3,7 @@
 const ExtensionUtils = imports.misc.extensionUtils;
 
 const Main = imports.ui.main;
+const Panel = imports.ui.panel;
 
 class Extension {
     constructor() {
@@ -12,9 +13,12 @@ class Extension {
     enable() {
         this._addNewItemsToBoxOrders();
         this._orderTopBarItems();
+        this._overwritePanelAddToPanelBox();
     }
 
     disable() {
+        // Revert the overwrite of `Panel._addToPanelBox`.
+        Panel.Panel.prototype._addToPanelBox = Panel.Panel.prototype._originalAddToPanelBox;
     }
 
     /**
@@ -150,6 +154,111 @@ class Extension {
         }
 
         return validBoxOrder;
+    }
+
+    /**
+     * Overwrite `Panel._addToPanelBox` with a custom method, which handles top
+     * bar item additions to make sure that they are added in the correct
+     * position.
+     */
+     _overwritePanelAddToPanelBox() {
+        // Add the original `Panel._addToPanelBox` method as
+        // `Panel._originalAddToPanelBox`.
+        Panel.Panel.prototype._originalAddToPanelBox = Panel.Panel.prototype._addToPanelBox;
+
+        // This function gets used by the `Panel._addToPanelBox` overwrite to
+        // determine the position for a new item.
+        // It also adds the new item to the relevant box order, if it isn't in
+        // it already.
+        const getPositionOverwrite = (role, box) => {
+            let boxOrder;
+            let validBoxOrder;
+
+            switch (box) {
+                case "left":
+                    boxOrder = this.settings.get_strv("left-box-order");
+                    validBoxOrder = this._createValidBoxOrder("left");
+                    break;
+                case "center":
+                    boxOrder = this.settings.get_strv("center-box-order");
+                    validBoxOrder = this._createValidBoxOrder("center");
+                    break;
+                case "right":
+                    boxOrder = this.settings.get_strv("right-box-order");
+                    validBoxOrder = this._createValidBoxOrder("right");
+                    break;
+            }
+
+            // Get the index of the role in the box order.
+            const index = boxOrder.indexOf(role);
+
+            // If the role is not already configured in the box order, just add
+            // it to the box order at the end/beginning, save the updated box
+            // order and return the relevant position.
+            if (index === -1) {
+                switch (box) {
+                    // For the left and center box, insert the role at the end,
+                    // since they're LTR.
+                    case "left":
+                        boxOrder.push(role);
+                        this.settings.set_strv("left-box-order", boxOrder);
+                        return validBoxOrder.length - 1;
+                    case "center":
+                        boxOrder.push(role);
+                        this.settings.set_strv("center-box-order", boxOrder);
+                        return validBoxOrder.length - 1;
+                    // For the right box, insert the role at the beginning,
+                    // since it's RTL.
+                    case "right":
+                        boxOrder.unshift(role);
+                        this.settings.set_strv("right-box-order", boxOrder);
+                        return 0;
+                }
+            }
+
+            // Since the role is already configured in the box order, determine
+            // the correct insertion index for the position.
+
+            // Set the insertion index initially to 0, so that if no closest
+            // item can be found, the new item just gets inserted at the
+            // beginning.
+            let insertionIndex = 0;
+
+            // Find the index of the closest item, which is also in the valid
+            // box order and before the new item.
+            // This way, we can insert the new item just after the index of this
+            // closest item.
+            for (let i = index - 1; i >= 0; i--) {
+                let potentialClosestItemIndex = validBoxOrder.indexOf(boxOrder[i]);
+                if (potentialClosestItemIndex !== -1) {
+                    insertionIndex = potentialClosestItemIndex + 1;
+                    break;
+                }
+            }
+
+            return insertionIndex;
+        }
+
+        // Overwrite `Panel._addToPanelBox`.
+        Panel.Panel.prototype._addToPanelBox = function (role, indicator, position, box) {
+            // Get the position overwrite.
+            let positionOverwrite;
+            switch (box) {
+                case this._leftBox:
+                    positionOverwrite = getPositionOverwrite(role, "left");
+                    break;
+                case this._centerBox:
+                    positionOverwrite = getPositionOverwrite(role, "center");
+                    break;
+                case this._rightBox:
+                    positionOverwrite = getPositionOverwrite(role, "right");
+                    break;
+            }
+
+            // Call the original `Panel._addToPanelBox` with the position
+            // overwrite as the position argument.
+            this._originalAddToPanelBox(role, indicator, positionOverwrite, box);
+        }
     }
 }
 
