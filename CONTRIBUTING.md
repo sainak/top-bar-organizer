@@ -1,5 +1,9 @@
 # Contributing
 
+## Textwidth
+
+For code of this repo in `.js` files, stick to a textwidth of 80.
+
 ## Commit Message Format
 
 The commit message format is as follows:

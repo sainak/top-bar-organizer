@@ -1,0 +1,7 @@
+{
+    "[javascript]": {
+        "editor.rulers": [80]
+    },
+
+    "vim.textwidth": 80
+}
