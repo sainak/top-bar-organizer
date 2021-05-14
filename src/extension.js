@@ -81,39 +81,10 @@ class Extension {
      * orders.
      */
     _orderTopBarItems() {
-        // Load the configured box orders from settings.
-        const leftBoxOrder = this.settings.get_strv("left-box-order");
-        const centerBoxOrder = this.settings.get_strv("center-box-order");
-        const rightBoxOrder = this.settings.get_strv("right-box-order");
-
-        // Get the indicator containers (of the items) currently present in the
-        // Gnome Shell top bar.
-        const leftBoxIndicatorContainers = Main.panel._leftBox.get_children();
-        const centerBoxIndicatorContainers = Main.panel._centerBox.get_children();
-        const rightBoxIndicatorContainers = Main.panel._rightBox.get_children();
-
-        // Go through the box order and remove all items (or rather their
-        // roles), which aren't present in the top bar currently.
-        const getValidBoxOrder = (boxIndicatorContainers, boxOrder) => {
-            // Create a indicator containers set from the indicator containers
-            // for fast easy access.
-            const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
-
-            let validBoxOrder = [ ];
-            for (const role of boxOrder) {
-                // Get the indicator container associated with the current role.
-                const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
-
-                if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) validBoxOrder.push(role);
-            }
-
-            return validBoxOrder;
-        }
-
         // Get valid box orders.
-        const validLeftBoxOrder = getValidBoxOrder(leftBoxIndicatorContainers, leftBoxOrder);
-        const validCenterBoxOrder = getValidBoxOrder(centerBoxIndicatorContainers, centerBoxOrder);
-        const validRightBoxOrder = getValidBoxOrder(rightBoxIndicatorContainers, rightBoxOrder);
+        const validLeftBoxOrder = this._createValidBoxOrder("left");
+        const validCenterBoxOrder = this._createValidBoxOrder("center");
+        const validRightBoxOrder = this._createValidBoxOrder("right");
         
         // Go through the items (or rather their roles) of a box and order the
         // box accordingly.
@@ -131,6 +102,54 @@ class Extension {
         orderBox(validLeftBoxOrder, Main.panel._leftBox);
         orderBox(validCenterBoxOrder, Main.panel._centerBox);
         orderBox(validRightBoxOrder, Main.panel._rightBox);
+    }
+
+    /**
+     * This function creates a valid box order for the given box.
+     * @param {string} box - The box to return the valid box order for.
+     * Must be one of the following values:
+     * - "left"
+     * - "center"
+     * - "right"
+     * @returns {string[]} - The valid box order.
+     */
+    _createValidBoxOrder(box) {
+        // Load the configured box order from settings and get the indicator
+        // containers (of the items) currently present in the Gnome Shell top
+        // bar.
+        let boxOrder;
+        let boxIndicatorContainers;
+        switch (box) {
+            case "left":
+                boxOrder = this.settings.get_strv("left-box-order");
+                boxIndicatorContainers = Main.panel._leftBox.get_children();
+                break;
+            case "center":
+                boxOrder = this.settings.get_strv("center-box-order");
+                boxIndicatorContainers = Main.panel._centerBox.get_children();
+                break;
+            case "right":
+                boxOrder = this.settings.get_strv("right-box-order");
+                boxIndicatorContainers = Main.panel._rightBox.get_children();
+                break;
+        }
+
+        // Create an indicator containers set from the indicator containers for
+        // fast easy access.
+        const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
+
+        // Go through the box order and only add items to the valid box order,
+        // where their indicator is present in the Gnome Shell top bar
+        // currently.
+        let validBoxOrder = [ ];
+        for (const role of boxOrder) {
+            // Get the indicator container associated with the current role.
+            const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
+
+            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) validBoxOrder.push(role);
+        }
+
+        return validBoxOrder;
     }
 }
 
