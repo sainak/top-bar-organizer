@@ -12,7 +12,7 @@ class Extension {
 
     enable() {
         this._addNewItemsToBoxOrders();
-        this._orderTopBarItems();
+        this._orderTopBarItemsOfAllBoxes();
         this._overwritePanelAddToPanelBox();
     }
 
@@ -81,31 +81,47 @@ class Extension {
     }
 
     /**
-     * This method orders the top bar items according to the configured box
-     * orders.
+     * This methods orders the top bar items of all boxes according to the
+     * configured box orders using `this._orderTopBarItems`.
      */
-    _orderTopBarItems() {
-        // Get valid box orders.
-        const validLeftBoxOrder = this._createValidBoxOrder("left");
-        const validCenterBoxOrder = this._createValidBoxOrder("center");
-        const validRightBoxOrder = this._createValidBoxOrder("right");
+    _orderTopBarItemsOfAllBoxes() {
+        this._orderTopBarItems("left");
+        this._orderTopBarItems("center");
+        this._orderTopBarItems("right");
+    }
 
-        // Go through the items (or rather their roles) of a box and order the
-        // box accordingly.
-        const orderBox = (boxOrder, box) => {
-            for (let i = 0; i < boxOrder.length; i++) {
-                const role = boxOrder[i];
-                // Get the indicator container associated with the current role.
-                const associatedIndicatorContainer = Main.panel.statusArea[role].container;
+    /**
+     * This method orders the top bar items of the specified box according to
+     * the configured box orders.
+     * @param {string} box - The box to order.
+     */
+    _orderTopBarItems(box) {
+        // Get the valid box order.
+        const validBoxOrder = this._createValidBoxOrder(box);
 
-                box.set_child_at_index(associatedIndicatorContainer, i);
-            }
+        // Get the relevant box of `Main.panel`.
+        let panelBox;
+        switch (box) {
+            case "left":
+                panelBox = Main.panel._leftBox;
+                break;
+            case "center":
+                panelBox = Main.panel._centerBox;
+                break;
+            case "right":
+                panelBox = Main.panel._rightBox;
+                break;
         }
 
-        // Order the top bar items.
-        orderBox(validLeftBoxOrder, Main.panel._leftBox);
-        orderBox(validCenterBoxOrder, Main.panel._centerBox);
-        orderBox(validRightBoxOrder, Main.panel._rightBox);
+        // Go through the items (or rather their roles) of the validBoxOrder and
+        // order the panelBox accordingly.
+        for (let i = 0; i < validBoxOrder.length; i++) {
+            const role = validBoxOrder[i];
+            // Get the indicator container associated with the current role.
+            const associatedIndicatorContainer = Main.panel.statusArea[role].container;
+
+            panelBox.set_child_at_index(associatedIndicatorContainer, i);
+        }
     }
 
     /**
