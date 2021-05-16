@@ -1,0 +1,6 @@
+# Unset rules for `.js` files in this directory, since they might come from
+# external sources and therefore shouldn't be affected by this repos
+# `.editorconfig`.
+[*.js]
+indent_size = unset
+trim_trailing_whitespace = unset

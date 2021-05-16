@@ -89,7 +89,7 @@ class Extension {
         const validLeftBoxOrder = this._createValidBoxOrder("left");
         const validCenterBoxOrder = this._createValidBoxOrder("center");
         const validRightBoxOrder = this._createValidBoxOrder("right");
-        
+
         // Go through the items (or rather their roles) of a box and order the
         // box accordingly.
         const orderBox = (boxOrder, box) => {
