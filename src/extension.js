@@ -14,11 +14,30 @@ class Extension {
         this._addNewItemsToBoxOrders();
         this._orderTopBarItemsOfAllBoxes();
         this._overwritePanelAddToPanelBox();
+
+        // Handle changes of configured box orders.
+        this._settingsHandlerIds = [ ];
+
+        const addConfiguredBoxOrderChangeHandler = (box) => {
+            let handlerId = this.settings.connect(`changed::${box}-box-order`, () => {
+                this._orderTopBarItems(box);
+            });
+            this._settingsHandlerIds.push(handlerId);
+        }
+
+        addConfiguredBoxOrderChangeHandler("left");
+        addConfiguredBoxOrderChangeHandler("center");
+        addConfiguredBoxOrderChangeHandler("right");
     }
 
     disable() {
         // Revert the overwrite of `Panel._addToPanelBox`.
         Panel.Panel.prototype._addToPanelBox = Panel.Panel.prototype._originalAddToPanelBox;
+
+        // Disconnect signals.
+        for (const handlerId of this._settingsHandlerIds) {
+            this.settings.disconnect(handlerId);
+        }
     }
 
     /**
