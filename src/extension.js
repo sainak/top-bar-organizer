@@ -184,8 +184,8 @@ class Extension {
 
             // Get the resolved box order for the box order.
             boxOrder = this._createResolvedBoxOrder(box);
-            // Also get the valid box order.
-            const validBoxOrder = this._createValidBoxOrder(box);
+            // Also get the restricted valid box order.
+            const restrictedValidBoxOrder = this._createRestrictedValidBoxOrder(box);
 
             // Get the index of the role in the box order.
             const index = boxOrder.indexOf(role);
@@ -200,11 +200,11 @@ class Extension {
                     case "left":
                         boxOrder.push(role);
                         this.settings.set_strv("left-box-order", boxOrder);
-                        return validBoxOrder.length - 1;
+                        return restrictedValidBoxOrder.length - 1;
                     case "center":
                         boxOrder.push(role);
                         this.settings.set_strv("center-box-order", boxOrder);
-                        return validBoxOrder.length - 1;
+                        return restrictedValidBoxOrder.length - 1;
                     // For the right box, insert the role at the beginning,
                     // since it's RTL.
                     case "right":
@@ -227,7 +227,7 @@ class Extension {
             // This way, we can insert the new item just after the index of this
             // closest item.
             for (let i = index - 1; i >= 0; i--) {
-                let potentialClosestItemIndex = validBoxOrder.indexOf(boxOrder[i]);
+                let potentialClosestItemIndex = restrictedValidBoxOrder.indexOf(boxOrder[i]);
                 if (potentialClosestItemIndex !== -1) {
                     insertionIndex = potentialClosestItemIndex + 1;
                     break;
@@ -265,6 +265,9 @@ class Extension {
 
     /**
      * This function creates a valid box order for the given box.
+     * This means it returns a box order for the box, where only roles are
+     * included, which have their associated indicator container already in some
+     * box of the Gnome Shell top bar.
      * @param {string} box - The box to return the valid box order for.
      * Must be one of the following values:
      * - "left"
@@ -273,8 +276,57 @@ class Extension {
      * @returns {string[]} - The valid box order.
      */
     _createValidBoxOrder(box) {
+        // Get a resolved box order.
+        let boxOrder = this._createResolvedBoxOrder(box);
+
+        // Get the indicator containers (of the items) currently present in the
+        // Gnome Shell top bar.
+        const boxIndicatorContainers = [ ];
+
+        const addIndicatorContainersOfBox = (panelBox) => {
+            for (const indicatorContainer of panelBox.get_children()) {
+                boxIndicatorContainers.push(indicatorContainer);
+            }
+        };
+
+        addIndicatorContainersOfBox(Main.panel._leftBox);
+        addIndicatorContainersOfBox(Main.panel._centerBox);
+        addIndicatorContainersOfBox(Main.panel._rightBox);
+
+        // Create an indicator containers set from the indicator containers for
+        // fast easy access.
+        const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
+
+        // Go through the box order and only add items to the valid box order,
+        // where their indicator is present in the Gnome Shell top bar
+        // currently.
+        let validBoxOrder = [ ];
+        for (const role of boxOrder) {
+            // Get the indicator container associated with the current role.
+            const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
+
+            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) validBoxOrder.push(role);
+        }
+
+        return validBoxOrder;
+    }
+
+    /**
+     * This function creates a restricted valid box order for the given box.
+     * This means it returns a box order for the box, where only roles are
+     * included, which have their associated indicator container already in the
+     * specified box.
+     * @param {string} box - The box to return the valid box order for.
+     * Must be one of the following values:
+     * - "left"
+     * - "center"
+     * - "right"
+     * @returns {string[]} - The restricted valid box order.
+     */
+    _createRestrictedValidBoxOrder(box) {
         // Get a resolved box order and get the indicator containers (of the
-        // items) currently present in the Gnome Shell top bar.
+        // items) which are currently present in the Gnome Shell top bar in the
+        // specified box.
         let boxOrder = this._createResolvedBoxOrder(box);
         let boxIndicatorContainers;
         switch (box) {
@@ -293,18 +345,18 @@ class Extension {
         // fast easy access.
         const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
 
-        // Go through the box order and only add items to the valid box order,
-        // where their indicator is present in the Gnome Shell top bar
-        // currently.
-        let validBoxOrder = [ ];
+        // Go through the box order and only add items to the restricted valid
+        // box order, where their indicator is present in the Gnome Shell top
+        // bar in the specified box currently.
+        let restrictedValidBoxOrder = [ ];
         for (const role of boxOrder) {
             // Get the indicator container associated with the current role.
             const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
 
-            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) validBoxOrder.push(role);
+            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) restrictedValidBoxOrder.push(role);
         }
 
-        return validBoxOrder;
+        return restrictedValidBoxOrder;
     }
 
     /**
@@ -337,7 +389,8 @@ class Extension {
             // Get the indicator container associated with the current role.
             const associatedIndicatorContainer = Main.panel.statusArea[role].container;
 
-            panelBox.set_child_at_index(associatedIndicatorContainer, i);
+            associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
+            panelBox.insert_child_at_index(associatedIndicatorContainer, i);
         }
     }
 
