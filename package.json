@@ -1,0 +1,17 @@
+{
+  "name": "top-bar-organizer",
+  "version": "1.0.0",
+  "description": "A Gnome Shell Extension for organizing your Gnome Shell top bar.",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@gitlab.gnome.org:julianschacher/top-bar-organizer.git"
+  },
+  "author": "Julian Schacher",
+  "license": "GPL-3.0-or-later",
+  "devDependencies": {
+    "eslint": "^7.26.0"
+  }
+}

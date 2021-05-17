@@ -16,6 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+/* exported init */
 "use strict";
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -46,7 +47,7 @@ class Extension {
                 this._orderTopBarItems(box);
             });
             this._settingsHandlerIds.push(handlerId);
-        }
+        };
 
         addConfiguredBoxOrderChangeHandler("left");
         addConfiguredBoxOrderChangeHandler("center");
@@ -119,7 +120,7 @@ class Extension {
                     }
                 }
             }
-        }
+        };
 
         // Add new items (or rather their roles) to the box orders and save
         // them.
@@ -147,7 +148,7 @@ class Extension {
      * bar item additions to make sure that they are added in the correct
      * position.
      */
-     _overwritePanelAddToPanelBox() {
+    _overwritePanelAddToPanelBox() {
         // Add the original `Panel._addToPanelBox` method as
         // `Panel._originalAddToPanelBox`.
         Panel.Panel.prototype._originalAddToPanelBox = Panel.Panel.prototype._addToPanelBox;
@@ -234,7 +235,7 @@ class Extension {
             }
 
             return insertionIndex;
-        }
+        };
 
         // Overwrite `Panel._addToPanelBox`.
         Panel.Panel.prototype._addToPanelBox = function (role, indicator, position, box) {
@@ -255,7 +256,7 @@ class Extension {
             // Call the original `Panel._addToPanelBox` with the position
             // overwrite as the position argument.
             this._originalAddToPanelBox(role, indicator, positionOverwrite, box);
-        }
+        };
     }
 
     ////////////////////////////////////////////////////////////////////////////
