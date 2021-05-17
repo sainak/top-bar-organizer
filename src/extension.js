@@ -11,6 +11,11 @@ class Extension {
     }
 
     enable() {
+        // Create an application-role map for associating roles with
+        // applications.
+        // This is needed to handle AppIndicator/KStatusNotifierItem items.
+        this._applicationRoleMap = new Map();
+
         this._addNewItemsToBoxOrders();
         this._orderTopBarItemsOfAllBoxes();
         this._overwritePanelAddToPanelBox();
@@ -81,6 +86,12 @@ class Extension {
                 // container.
                 const associatedRole = indicatorContainerRoleMap.get(indicatorContainer);
 
+                // Handle an AppIndicator/KStatusNotifierItem item differently.
+                if (associatedRole.startsWith("appindicator-")) {
+                    this._handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, associatedRole, boxOrder, atToBeginning);
+                    continue;
+                }
+
                 // Add the role to the box order, if it isn't in it already.
                 if (!boxOrderSet.has(associatedRole)) {
                     if (atToBeginning) {
@@ -127,24 +138,35 @@ class Extension {
         // determine the position for a new item.
         // It also adds the new item to the relevant box order, if it isn't in
         // it already.
-        const getPositionOverwrite = (role, box) => {
+        const getPositionOverwrite = (role, box, indicator) => {
             let boxOrder;
-            let validBoxOrder;
 
-            switch (box) {
-                case "left":
-                    boxOrder = this.settings.get_strv("left-box-order");
-                    validBoxOrder = this._createValidBoxOrder("left");
-                    break;
-                case "center":
-                    boxOrder = this.settings.get_strv("center-box-order");
-                    validBoxOrder = this._createValidBoxOrder("center");
-                    break;
-                case "right":
-                    boxOrder = this.settings.get_strv("right-box-order");
-                    validBoxOrder = this._createValidBoxOrder("right");
-                    break;
+            // Handle the case where the new item is a
+            // AppIndicator/KStatusNotifierItem.
+            if (role.startsWith("appindicator-")) {
+                switch (box) {
+                    case "left":
+                        boxOrder = this.settings.get_strv("left-box-order");
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder);
+                        this.settings.set_strv("left-box-order", boxOrder);
+                        break;
+                    case "center":
+                        boxOrder = this.settings.get_strv("center-box-order");
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder);
+                        this.settings.set_strv("center-box-order", boxOrder);
+                        break;
+                    case "right":
+                        boxOrder = this.settings.get_strv("right-box-order");
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, true);
+                        this.settings.set_strv("right-box-order", boxOrder);
+                        break;
+                }
             }
+
+            // Get the resolved box order for the box order.
+            boxOrder = this._createResolvedBoxOrder(box);
+            // Also get the valid box order.
+            const validBoxOrder = this._createValidBoxOrder(box);
 
             // Get the index of the role in the box order.
             const index = boxOrder.indexOf(role);
@@ -202,13 +224,13 @@ class Extension {
             let positionOverwrite;
             switch (box) {
                 case this._leftBox:
-                    positionOverwrite = getPositionOverwrite(role, "left");
+                    positionOverwrite = getPositionOverwrite(role, "left", indicator);
                     break;
                 case this._centerBox:
-                    positionOverwrite = getPositionOverwrite(role, "center");
+                    positionOverwrite = getPositionOverwrite(role, "center", indicator);
                     break;
                 case this._rightBox:
-                    positionOverwrite = getPositionOverwrite(role, "right");
+                    positionOverwrite = getPositionOverwrite(role, "right", indicator);
                     break;
             }
 
@@ -232,22 +254,18 @@ class Extension {
      * @returns {string[]} - The valid box order.
      */
     _createValidBoxOrder(box) {
-        // Load the configured box order from settings and get the indicator
-        // containers (of the items) currently present in the Gnome Shell top
-        // bar.
-        let boxOrder;
+        // Get a resolved box order and get the indicator containers (of the
+        // items) currently present in the Gnome Shell top bar.
+        let boxOrder = this._createResolvedBoxOrder(box);
         let boxIndicatorContainers;
         switch (box) {
             case "left":
-                boxOrder = this.settings.get_strv("left-box-order");
                 boxIndicatorContainers = Main.panel._leftBox.get_children();
                 break;
             case "center":
-                boxOrder = this.settings.get_strv("center-box-order");
                 boxIndicatorContainers = Main.panel._centerBox.get_children();
                 break;
             case "right":
-                boxOrder = this.settings.get_strv("right-box-order");
                 boxIndicatorContainers = Main.panel._rightBox.get_children();
                 break;
         }
@@ -302,6 +320,91 @@ class Extension {
 
             panelBox.set_child_at_index(associatedIndicatorContainer, i);
         }
+    }
+
+    /**
+     * Handle an AppIndicator/KStatusNotifierItem item.
+     *
+     * This function basically does the following two things:
+     * - Associate the role of the given item with the application of the
+     *   AppIndicator/KStatusNotifierItem.
+     * - Add a placeholder for the roles associated with the application of the
+     *   AppIndiciator/KStatusNotifierItem to the box order, if needed.
+     *
+     * Note: The caller is responsible for saving the updated box order to
+     * settings.
+     * @param {} indicatorContainer - The container of the indicator of the
+     * AppIndicator/KStatusNotifierItem item.
+     * @param {string} role - The role of the AppIndicator/KStatusNotifierItem
+     * item.
+     * @param {string[]} - The box order the placeholder should be added to, if
+     * needed.
+     * @param {boolean} - Whether to add the placeholder to the beginning of the
+     * box order.
+     */
+    _handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, role, boxOrder, atToBeginning = false) {
+        // Get the application the AppIndicator/KStatusNotifierItem is
+        // associated with.
+        const application = indicatorContainer.get_child()._indicator.id;
+
+        // Associate the role with the application.
+        let roles = this._applicationRoleMap.get(application);
+        if (roles) {
+            // If the application already has an array of associated roles, just
+            // add the role to it.
+            roles.push(role);
+        } else {
+            // Otherwise create a new array.
+            this._applicationRoleMap.set(application, [ role ]);
+        }
+
+        // Store a placeholder for the roles associated with the application in
+        // the box order, if needed.
+        // (Then later the placeholder can be replaced with the relevant roles
+        // using `this._applicationRoleMap`.)
+        const placeholder = `appindicator-kstatusnotifieritem-${application}`;
+        if (!boxOrder.includes(placeholder)) {
+            if (atToBeginning) {
+                boxOrder.unshift(placeholder);
+            } else {
+                boxOrder.push(placeholder);
+            }
+        }
+    }
+
+    /**
+     * This function returns a box order for the specified box, where the
+     * placeholders are replaced with the relevant roles.
+     * @param {string} box - The box of which to get the resolved box order.
+     */
+    _createResolvedBoxOrder(box) {
+        const boxOrder = this.settings.get_strv(`${box}-box-order`);
+
+        let resolvedBoxOrder = [ ];
+        for (const item of boxOrder) {
+            // If the item isn't a placeholder, just add it to the new resolved
+            // box order.
+            if (!item.startsWith("appindicator-kstatusnotifieritem-")) {
+                resolvedBoxOrder.push(item);
+                continue;
+            }
+
+            /// If the item is a placeholder, replace it.
+            // First get the application this placeholder is associated with.
+            const application = item.replace("appindicator-kstatusnotifieritem-", "");
+
+            // Then get the roles associated with the application.
+            let roles = this._applicationRoleMap.get(application);
+
+            // Continue, if there are no roles.
+            if (!roles) continue;
+            // Otherwise add the roles
+            for (const role of roles) {
+                resolvedBoxOrder.push(role);
+            }
+        }
+
+        return resolvedBoxOrder;
     }
 }
 
