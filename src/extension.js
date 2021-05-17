@@ -45,6 +45,17 @@ class Extension {
         const addConfiguredBoxOrderChangeHandler = (box) => {
             let handlerId = this.settings.connect(`changed::${box}-box-order`, () => {
                 this._orderTopBarItems(box);
+
+                /// For the case, where the currently saved box order is based
+                /// on a permutation of an outdated box order, get an updated
+                /// box order and save it, if needed.
+                const updatedBoxOrder = this._createUpdatedBoxOrder(box);
+                // Only save the updated box order to settings, if it is
+                // different, to avoid looping.
+                const currentBoxOrder = this.settings.get_strv(`${box}-box-order`);
+                if (JSON.stringify(currentBoxOrder) !== JSON.stringify(updatedBoxOrder)) {
+                    this.settings.set_strv(`${box}-box-order`, updatedBoxOrder);
+                }
             });
             this._settingsHandlerIds.push(handlerId);
         };
@@ -394,16 +405,46 @@ class Extension {
                 break;
         }
 
-        // Go through the items (or rather their roles) of the validBoxOrder and
-        // order the panelBox accordingly.
-        for (let i = 0; i < validBoxOrder.length; i++) {
-            const role = validBoxOrder[i];
-            // Get the indicator container associated with the current role.
-            const associatedIndicatorContainer = Main.panel.statusArea[role].container;
+        /// Go through the items (or rather their roles) of the validBoxOrder
+        /// and order the panelBox accordingly.
+        // Declare panelBoxChildCount here, because we might need it later.
+        let panelBoxChildCount;
+        switch (box) {
+            // If the left or center box is the target box, order form left to
+            // right.
+            case "left":
+            case "center":
+                for (let i = 0; i < validBoxOrder.length; i++) {
+                    const role = validBoxOrder[i];
+                    // Get the indicator container associated with the current
+                    // role.
+                    const associatedIndicatorContainer = Main.panel.statusArea[role].container;
 
-            associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
-            panelBox.insert_child_at_index(associatedIndicatorContainer, i);
+                    associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
+                    panelBox.insert_child_at_index(associatedIndicatorContainer, i);
+                }
+                break;
+            // If the right box is the target box, order from right to left.
+            // The order direction is important for the case, where the box
+            // order got set to a box order, which doesn't include all the roles
+            // to cover all items of the respective box.
+            // This could happen, when the box order gets set to a permutation
+            // of an outdated box order.
+            case "right":
+                panelBoxChildCount = panelBox.get_children().length;
+                for (let i = 0; i < validBoxOrder.length; i++) {
+                    const role = validBoxOrder[validBoxOrder.length - 1 - i];
+                    // Get the indicator container associated with the current role.
+                    const associatedIndicatorContainer = Main.panel.statusArea[role].container;
+
+                    associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
+                    panelBox.insert_child_at_index(associatedIndicatorContainer, panelBoxChildCount - 1 -i);
+                }
+                break;
         }
+        // To handle the case, where the box order got set to a permutation
+        // of an outdated box order, it would be wise, if the caller updated the
+        // box order now to include the items present in the top bar.
     }
 
     /**
