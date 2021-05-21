@@ -49,7 +49,18 @@ class Extension {
                 /// For the case, where the currently saved box order is based
                 /// on a permutation of an outdated box order, get an updated
                 /// box order and save it, if needed.
-                const updatedBoxOrder = this._createUpdatedBoxOrder(box);
+                let updatedBoxOrder;
+                switch (box) {
+                    case "left":
+                        updatedBoxOrder = this._createUpdatedBoxOrders().left;
+                        break;
+                    case "center":
+                        updatedBoxOrder = this._createUpdatedBoxOrders().center;
+                        break;
+                    case "right":
+                        updatedBoxOrder = this._createUpdatedBoxOrders().right;
+                        break;
+                }
                 // Only save the updated box order to settings, if it is
                 // different, to avoid looping.
                 const currentBoxOrder = this.settings.get_strv(`${box}-box-order`);
@@ -84,9 +95,10 @@ class Extension {
      * bar to the box orders.
      */
     _addNewItemsToBoxOrders() {
-        this.settings.set_strv("left-box-order", this._createUpdatedBoxOrder("left"));
-        this.settings.set_strv("center-box-order", this._createUpdatedBoxOrder("center"));
-        this.settings.set_strv("right-box-order", this._createUpdatedBoxOrder("right"));
+        const boxOrders = this._createUpdatedBoxOrders();
+        this.settings.set_strv("left-box-order", boxOrders.left);
+        this.settings.set_strv("center-box-order", boxOrders.center);
+        this.settings.set_strv("right-box-order", boxOrders.right);
     }
 
     /**
@@ -100,9 +112,16 @@ class Extension {
     }
 
     /**
+     * An object containing a position and box overwrite.
+     * @typedef PositionAndBoxOverwrite
+     * @property {Number} position - The position overwrite.
+     * @property {string} box - The position box overwrite.
+     */
+
+    /**
      * Overwrite `Panel._addToPanelBox` with a custom method, which handles top
      * bar item additions to make sure that they are added in the correct
-     * position.
+     * position and box.
      */
     _overwritePanelAddToPanelBox() {
         // Add the original `Panel._addToPanelBox` method as
@@ -110,10 +129,15 @@ class Extension {
         Panel.Panel.prototype._originalAddToPanelBox = Panel.Panel.prototype._addToPanelBox;
 
         // This function gets used by the `Panel._addToPanelBox` overwrite to
-        // determine the position for a new item.
+        // determine the position and box for a new item.
         // It also adds the new item to the relevant box order, if it isn't in
         // it already.
-        const getPositionOverwrite = (role, box, indicator) => {
+        const getPositionAndBoxOverwrite = (role, box, indicator) => {
+            const boxOrders = {
+                left: this.settings.get_strv("left-box-order"),
+                center: this.settings.get_strv("center-box-order"),
+                right: this.settings.get_strv("right-box-order"),
+            };
             let boxOrder;
 
             // Handle the case where the new item is a
@@ -122,96 +146,148 @@ class Extension {
                 switch (box) {
                     case "left":
                         boxOrder = this.settings.get_strv("left-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder);
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
                         this.settings.set_strv("left-box-order", boxOrder);
                         break;
                     case "center":
                         boxOrder = this.settings.get_strv("center-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder);
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
                         this.settings.set_strv("center-box-order", boxOrder);
                         break;
                     case "right":
                         boxOrder = this.settings.get_strv("right-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, true);
+                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders, true);
                         this.settings.set_strv("right-box-order", boxOrder);
                         break;
                 }
             }
 
-            // Get the resolved box order for the box order.
-            boxOrder = this._createResolvedBoxOrder(box);
-            // Also get the restricted valid box order.
-            const restrictedValidBoxOrder = this._createRestrictedValidBoxOrder(box);
+            // Get the resolved box orders for all boxes.
+            const resolvedBoxOrders = {
+                left: this._createResolvedBoxOrder("left"),
+                center: this._createResolvedBoxOrder("center"),
+                right: this._createResolvedBoxOrder("right"),
+            };
+            // Also get the restricted valid box order of the target box.
+            const restrictedValidBoxOrderOfTargetBox = this._createRestrictedValidBoxOrder(box);
 
-            // Get the index of the role in the box order.
-            const index = boxOrder.indexOf(role);
+            // Get the index of the role for each box order.
+            const indices = {
+                left: resolvedBoxOrders.left.indexOf(role),
+                center: resolvedBoxOrders.center.indexOf(role),
+                right: resolvedBoxOrders.right.indexOf(role),
+            };
 
-            // If the role is not already configured in the box order, just add
-            // it to the box order at the end/beginning, save the updated box
-            // order and return the relevant position.
-            if (index === -1) {
+            // If the role is not already configured in one of the box orders,
+            // just add it to the target box order at the end/beginning, save
+            // the updated box order and return the relevant position and box.
+            if (indices.left === -1
+                && indices.center === -1
+                && indices.right === -1) {
                 switch (box) {
                     // For the left and center box, insert the role at the end,
                     // since they're LTR.
                     case "left":
-                        boxOrder.push(role);
-                        this.settings.set_strv("left-box-order", boxOrder);
-                        return restrictedValidBoxOrder.length - 1;
+                        boxOrders["left"].push(role);
+                        this.settings.set_strv("left-box-order", boxOrders["left"]);
+                        return {
+                            position: restrictedValidBoxOrderOfTargetBox.length - 1,
+                            box: box
+                        };
                     case "center":
-                        boxOrder.push(role);
-                        this.settings.set_strv("center-box-order", boxOrder);
-                        return restrictedValidBoxOrder.length - 1;
+                        boxOrders["center"].push(role);
+                        this.settings.set_strv("center-box-order", boxOrders["center"]);
+                        return {
+                            position: restrictedValidBoxOrderOfTargetBox.length - 1,
+                            box: box
+                        };
                     // For the right box, insert the role at the beginning,
                     // since it's RTL.
                     case "right":
-                        boxOrder.unshift(role);
-                        this.settings.set_strv("right-box-order", boxOrder);
-                        return 0;
+                        boxOrders["right"].unshift(role);
+                        this.settings.set_strv("right-box-order", boxOrders["right"]);
+                        return {
+                            position: 0,
+                            box: box
+                        };
                 }
             }
 
-            // Since the role is already configured in the box order, determine
-            // the correct insertion index for the position.
+            /// Since the role is already configured in one of the box orders,
+            /// determine the correct insertion index for the position.
+            const determineInsertionIndex = (index, restrictedValidBoxOrder, boxOrder) => {
+                // Set the insertion index initially to 0, so that if no closest
+                // item can be found, the new item just gets inserted at the
+                // beginning.
+                let insertionIndex = 0;
 
-            // Set the insertion index initially to 0, so that if no closest
-            // item can be found, the new item just gets inserted at the
-            // beginning.
-            let insertionIndex = 0;
-
-            // Find the index of the closest item, which is also in the valid
-            // box order and before the new item.
-            // This way, we can insert the new item just after the index of this
-            // closest item.
-            for (let i = index - 1; i >= 0; i--) {
-                let potentialClosestItemIndex = restrictedValidBoxOrder.indexOf(boxOrder[i]);
-                if (potentialClosestItemIndex !== -1) {
-                    insertionIndex = potentialClosestItemIndex + 1;
-                    break;
+                // Find the index of the closest item, which is also in the
+                // valid box order and before the new item.
+                // This way, we can insert the new item just after the index of
+                // this closest item.
+                for (let i = index - 1; i >= 0; i--) {
+                    let potentialClosestItemIndex = restrictedValidBoxOrder.indexOf(boxOrder[i]);
+                    if (potentialClosestItemIndex !== -1) {
+                        insertionIndex = potentialClosestItemIndex + 1;
+                        break;
+                    }
                 }
+
+                return insertionIndex;
+            };
+
+            if (indices.left !== -1) {
+                return {
+                    position: determineInsertionIndex(indices.left, this._createRestrictedValidBoxOrder("left"), boxOrders.left),
+                    box: "left"
+                };
             }
 
-            return insertionIndex;
+            if (indices.center !== -1) {
+                return {
+                    position: determineInsertionIndex(indices.center, this._createRestrictedValidBoxOrder("center"), boxOrders.center),
+                    box: "center"
+                };
+            }
+
+            if (indices.right !== -1) {
+                return {
+                    position: determineInsertionIndex(indices.right, this._createRestrictedValidBoxOrder("right"), boxOrders.right),
+                    box: "right"
+                };
+            }
         };
 
         // Overwrite `Panel._addToPanelBox`.
         Panel.Panel.prototype._addToPanelBox = function (role, indicator, position, box) {
-            // Get the position overwrite.
-            let positionOverwrite;
+            // Get the position and box overwrite.
+            let positionBoxOverwrite;
             switch (box) {
                 case this._leftBox:
-                    positionOverwrite = getPositionOverwrite(role, "left", indicator);
+                    positionBoxOverwrite = getPositionAndBoxOverwrite(role, "left", indicator);
                     break;
                 case this._centerBox:
-                    positionOverwrite = getPositionOverwrite(role, "center", indicator);
+                    positionBoxOverwrite = getPositionAndBoxOverwrite(role, "center", indicator);
                     break;
                 case this._rightBox:
-                    positionOverwrite = getPositionOverwrite(role, "right", indicator);
+                    positionBoxOverwrite = getPositionAndBoxOverwrite(role, "right", indicator);
                     break;
             }
 
             // Call the original `Panel._addToPanelBox` with the position
-            // overwrite as the position argument.
-            this._originalAddToPanelBox(role, indicator, positionOverwrite, box);
+            // overwrite as the position argument and the box determined by the
+            // box overwrite as the box argument.
+            switch (positionBoxOverwrite.box) {
+                case "left":
+                    this._originalAddToPanelBox(role, indicator, positionBoxOverwrite.position, Main.panel._leftBox);
+                    break;
+                case "center":
+                    this._originalAddToPanelBox(role, indicator, positionBoxOverwrite.position, Main.panel._centerBox);
+                    break;
+                case "right":
+                    this._originalAddToPanelBox(role, indicator, positionBoxOverwrite.position, Main.panel._rightBox);
+                    break;
+            }
         };
     }
 
@@ -220,14 +296,26 @@ class Extension {
     ////////////////////////////////////////////////////////////////////////////
 
     /**
-     * This method adds all new items currently present in the specified Gnome
-     * Shell top bar box to a box order and returns that new box order.
-     * @param {string} box - The box to create the updated box order for.
-     * @returns {string[]} - The updated box order.
+     * An object containing a box order for the left, center and right top bar
+     * box.
+     * @typedef {Object} BoxOrders
+     * @property {string[]} left - The box order for the left top bar box.
+     * @property {string[]} center - The box order for the center top bar box.
+     * @property {string[]} right - The box order for the right top bar box.
      */
-    _createUpdatedBoxOrder(box) {
-        // Load the configured box order from settings.
-        const boxOrder = this.settings.get_strv(`${box}-box-order`);
+
+    /**
+     * This method adds all new items currently present in the Gnome Shell top
+     * bar to the correct box order and returns the new box orders.
+     * @returns {BoxOrders} - The updated box orders.
+     */
+    _createUpdatedBoxOrders() {
+        // Load the configured box orders from settings.
+        const boxOrders = {
+            left: this.settings.get_strv("left-box-order"),
+            center: this.settings.get_strv("center-box-order"),
+            right: this.settings.get_strv("right-box-order"),
+        };
 
         // Get items (or rather their roles) currently present in the Gnome
         // Shell top bar and index them using their associated indicator
@@ -238,52 +326,50 @@ class Extension {
         }
 
         // Get the indicator containers (of the items) currently present in the
-        // Gnome Shell top bar box.
-        let boxIndicatorContainers;
-        switch (box) {
-            case "left":
-                boxIndicatorContainers = Main.panel._leftBox.get_children();
-                break;
-            case "center":
-                boxIndicatorContainers = Main.panel._centerBox.get_children();
-                break;
-            case "right":
-                // Reverse this array, since the items in the left and center
-                // box are logically LTR, while the items in the right box are
-                // RTL.
-                boxIndicatorContainers = Main.panel._rightBox.get_children().reverse();
-                break;
-        }
+        // Gnome Shell top bar boxes.
+        const boxOrderIndicatorContainers = {
+            left: Main.panel._leftBox.get_children(),
+            center: Main.panel._centerBox.get_children(),
+            // Reverse this array, since the items in the left and center box
+            // are logically LTR, while the items in the right box are RTL.
+            right: Main.panel._rightBox.get_children().reverse()
+        };
 
-        /// Go through the items (or rather their indicator containers) of the
-        /// box and add new items (or rather their roles) to the box order.
-        // Create a box order set from the box order for fast easy access.
-        const boxOrderSet = new Set(boxOrder);
+        // This function goes through the items (or rather their indicator
+        // containers) of the given box and adds new items (or rather their
+        // roles) to the box order.
+        const addNewItemsToBoxOrder = (boxIndicatorContainers, boxOrder, box) => {
+            for (const indicatorContainer of boxIndicatorContainers) {
+                // First get the role associated with the current indicator
+                // container.
+                const associatedRole = indicatorContainerRoleMap.get(indicatorContainer);
 
-        for (const indicatorContainer of boxIndicatorContainers) {
-            // First get the role associated with the current indicator
-            // container.
-            const associatedRole = indicatorContainerRoleMap.get(indicatorContainer);
+                // Handle an AppIndicator/KStatusNotifierItem item differently.
+                if (associatedRole.startsWith("appindicator-")) {
+                    this._handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, associatedRole, boxOrder, boxOrders, box === "right");
+                    continue;
+                }
 
-            // Handle an AppIndicator/KStatusNotifierItem item differently.
-            if (associatedRole.startsWith("appindicator-")) {
-                this._handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, associatedRole, boxOrder, box === "right");
-                continue;
-            }
-
-            // Add the role to the box order, if it isn't in it already.
-            if (!boxOrderSet.has(associatedRole)) {
-                if (box === "right") {
-                    // Add the items to the beginning for this array, since
-                    // its RTL.
-                    boxOrder.unshift(associatedRole);
-                } else {
-                    boxOrder.push(associatedRole);
+                // Add the role to the box order, if it isn't in in one already.
+                if (!boxOrders.left.includes(associatedRole)
+                    && !boxOrders.center.includes(associatedRole)
+                    && !boxOrders.right.includes(associatedRole)) {
+                    if (box === "right") {
+                        // Add the items to the beginning for this array, since
+                        // its RTL.
+                        boxOrder.unshift(associatedRole);
+                    } else {
+                        boxOrder.push(associatedRole);
+                    }
                 }
             }
-        }
+        };
 
-        return boxOrder;
+        addNewItemsToBoxOrder(boxOrderIndicatorContainers.left, boxOrders.left, "left");
+        addNewItemsToBoxOrder(boxOrderIndicatorContainers.center, boxOrders.center, "center");
+        addNewItemsToBoxOrder(boxOrderIndicatorContainers.right, boxOrders.right, "right");
+
+        return boxOrders;
     }
 
     /**
@@ -464,10 +550,12 @@ class Extension {
      * item.
      * @param {string[]} - The box order the placeholder should be added to, if
      * needed.
+     * @param {BoxOrders} boxOrders - An object containing the box orders, which
+     * is currently getting worked on.
      * @param {boolean} - Whether to add the placeholder to the beginning of the
      * box order.
      */
-    _handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, role, boxOrder, atToBeginning = false) {
+    _handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, role, boxOrder, boxOrders, atToBeginning = false) {
         // Get the application the AppIndicator/KStatusNotifierItem is
         // associated with.
         const application = indicatorContainer.get_child()._indicator.id;
@@ -488,7 +576,9 @@ class Extension {
         // (Then later the placeholder can be replaced with the relevant roles
         // using `this._applicationRoleMap`.)
         const placeholder = `appindicator-kstatusnotifieritem-${application}`;
-        if (!boxOrder.includes(placeholder)) {
+        if (!boxOrders.left.includes(placeholder)
+            && !boxOrders.center.includes(placeholder)
+            && !boxOrders.right.includes(placeholder)) {
             if (atToBeginning) {
                 boxOrder.unshift(placeholder);
             } else {
