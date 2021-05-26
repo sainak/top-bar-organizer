@@ -20,9 +20,12 @@
 "use strict";
 
 const ExtensionUtils = imports.misc.extensionUtils;
+const Me = ExtensionUtils.getCurrentExtension();
 
 const Main = imports.ui.main;
 const Panel = imports.ui.panel;
+
+const AppIndicatorKStatusNotifierItemManager = Me.imports.extensionModules.AppIndicatorKStatusNotifierItemManager;
 
 class Extension {
     constructor() {
@@ -30,10 +33,8 @@ class Extension {
     }
 
     enable() {
-        // Create an application-role map for associating roles with
-        // applications.
-        // This is needed to handle AppIndicator/KStatusNotifierItem items.
-        this._applicationRoleMap = new Map();
+        // Create an instance of AppIndicatorKStatusNotifierItemManager to handle AppIndicator/KStatusNotifierItem items.
+        this._appIndicatorKStatusNotifierItemManager = new AppIndicatorKStatusNotifierItemManager.AppIndicatorKStatusNotifierItemManager();
 
         this._addNewItemsToBoxOrders();
         this._orderTopBarItemsOfAllBoxes();
@@ -146,17 +147,17 @@ class Extension {
                 switch (box) {
                     case "left":
                         boxOrder = this.settings.get_strv("left-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
+                        this._appIndicatorKStatusNotifierItemManager.handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
                         this.settings.set_strv("left-box-order", boxOrder);
                         break;
                     case "center":
                         boxOrder = this.settings.get_strv("center-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
+                        this._appIndicatorKStatusNotifierItemManager.handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders);
                         this.settings.set_strv("center-box-order", boxOrder);
                         break;
                     case "right":
                         boxOrder = this.settings.get_strv("right-box-order");
-                        this._handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders, true);
+                        this._appIndicatorKStatusNotifierItemManager.handleAppIndicatorKStatusNotifierItemItem(indicator.container, role, boxOrder, boxOrders, true);
                         this.settings.set_strv("right-box-order", boxOrder);
                         break;
                 }
@@ -164,9 +165,9 @@ class Extension {
 
             // Get the resolved box orders for all boxes.
             const resolvedBoxOrders = {
-                left: this._createResolvedBoxOrder("left"),
-                center: this._createResolvedBoxOrder("center"),
-                right: this._createResolvedBoxOrder("right"),
+                left: this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv("left-box-order")),
+                center: this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv("center-box-order")),
+                right: this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv("right-box-order")),
             };
             // Also get the restricted valid box order of the target box.
             const restrictedValidBoxOrderOfTargetBox = this._createRestrictedValidBoxOrder(box);
@@ -346,7 +347,7 @@ class Extension {
 
                 // Handle an AppIndicator/KStatusNotifierItem item differently.
                 if (associatedRole.startsWith("appindicator-")) {
-                    this._handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, associatedRole, boxOrder, boxOrders, box === "right");
+                    this._appIndicatorKStatusNotifierItemManager.handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, associatedRole, boxOrder, boxOrders, box === "right");
                     continue;
                 }
 
@@ -386,7 +387,7 @@ class Extension {
      */
     _createValidBoxOrder(box) {
         // Get a resolved box order.
-        let boxOrder = this._createResolvedBoxOrder(box);
+        let boxOrder = this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv(`${box}-box-order`));
 
         // Get the indicator containers (of the items) currently present in the
         // Gnome Shell top bar.
@@ -436,7 +437,7 @@ class Extension {
         // Get a resolved box order and get the indicator containers (of the
         // items) which are currently present in the Gnome Shell top bar in the
         // specified box.
-        let boxOrder = this._createResolvedBoxOrder(box);
+        let boxOrder = this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv(`${box}-box-order`));
         let boxIndicatorContainers;
         switch (box) {
             case "left":
@@ -531,95 +532,6 @@ class Extension {
         // To handle the case, where the box order got set to a permutation
         // of an outdated box order, it would be wise, if the caller updated the
         // box order now to include the items present in the top bar.
-    }
-
-    /**
-     * Handle an AppIndicator/KStatusNotifierItem item.
-     *
-     * This function basically does the following two things:
-     * - Associate the role of the given item with the application of the
-     *   AppIndicator/KStatusNotifierItem.
-     * - Add a placeholder for the roles associated with the application of the
-     *   AppIndiciator/KStatusNotifierItem to the box order, if needed.
-     *
-     * Note: The caller is responsible for saving the updated box order to
-     * settings.
-     * @param {} indicatorContainer - The container of the indicator of the
-     * AppIndicator/KStatusNotifierItem item.
-     * @param {string} role - The role of the AppIndicator/KStatusNotifierItem
-     * item.
-     * @param {string[]} - The box order the placeholder should be added to, if
-     * needed.
-     * @param {BoxOrders} boxOrders - An object containing the box orders, which
-     * is currently getting worked on.
-     * @param {boolean} - Whether to add the placeholder to the beginning of the
-     * box order.
-     */
-    _handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, role, boxOrder, boxOrders, atToBeginning = false) {
-        // Get the application the AppIndicator/KStatusNotifierItem is
-        // associated with.
-        const application = indicatorContainer.get_child()._indicator.id;
-
-        // Associate the role with the application.
-        let roles = this._applicationRoleMap.get(application);
-        if (roles) {
-            // If the application already has an array of associated roles, just
-            // add the role to it, if needed.
-            if (!roles.includes(role)) roles.push(role);
-        } else {
-            // Otherwise create a new array.
-            this._applicationRoleMap.set(application, [ role ]);
-        }
-
-        // Store a placeholder for the roles associated with the application in
-        // the box order, if needed.
-        // (Then later the placeholder can be replaced with the relevant roles
-        // using `this._applicationRoleMap`.)
-        const placeholder = `appindicator-kstatusnotifieritem-${application}`;
-        if (!boxOrders.left.includes(placeholder)
-            && !boxOrders.center.includes(placeholder)
-            && !boxOrders.right.includes(placeholder)) {
-            if (atToBeginning) {
-                boxOrder.unshift(placeholder);
-            } else {
-                boxOrder.push(placeholder);
-            }
-        }
-    }
-
-    /**
-     * This function returns a box order for the specified box, where the
-     * placeholders are replaced with the relevant roles.
-     * @param {string} box - The box of which to get the resolved box order.
-     */
-    _createResolvedBoxOrder(box) {
-        const boxOrder = this.settings.get_strv(`${box}-box-order`);
-
-        let resolvedBoxOrder = [ ];
-        for (const item of boxOrder) {
-            // If the item isn't a placeholder, just add it to the new resolved
-            // box order.
-            if (!item.startsWith("appindicator-kstatusnotifieritem-")) {
-                resolvedBoxOrder.push(item);
-                continue;
-            }
-
-            /// If the item is a placeholder, replace it.
-            // First get the application this placeholder is associated with.
-            const application = item.replace("appindicator-kstatusnotifieritem-", "");
-
-            // Then get the roles associated with the application.
-            let roles = this._applicationRoleMap.get(application);
-
-            // Continue, if there are no roles.
-            if (!roles) continue;
-            // Otherwise add the roles
-            for (const role of roles) {
-                resolvedBoxOrder.push(role);
-            }
-        }
-
-        return resolvedBoxOrder;
     }
 }
 
