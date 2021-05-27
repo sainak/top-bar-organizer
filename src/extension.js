@@ -26,6 +26,7 @@ const Main = imports.ui.main;
 const Panel = imports.ui.panel;
 
 const AppIndicatorKStatusNotifierItemManager = Me.imports.extensionModules.AppIndicatorKStatusNotifierItemManager;
+const BoxOrderCreator = Me.imports.extensionModules.BoxOrderCreator;
 
 class Extension {
     constructor() {
@@ -35,6 +36,10 @@ class Extension {
     enable() {
         // Create an instance of AppIndicatorKStatusNotifierItemManager to handle AppIndicator/KStatusNotifierItem items.
         this._appIndicatorKStatusNotifierItemManager = new AppIndicatorKStatusNotifierItemManager.AppIndicatorKStatusNotifierItemManager();
+
+        // Create an instance of BoxOrderCreator for the creation of special box
+        // orders.
+        this._boxOrderCreator = new BoxOrderCreator.BoxOrderCreator(this._appIndicatorKStatusNotifierItemManager);
 
         this._addNewItemsToBoxOrders();
         this._orderTopBarItemsOfAllBoxes();
@@ -170,7 +175,7 @@ class Extension {
                 right: this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv("right-box-order")),
             };
             // Also get the restricted valid box order of the target box.
-            const restrictedValidBoxOrderOfTargetBox = this._createRestrictedValidBoxOrder(box);
+            const restrictedValidBoxOrderOfTargetBox = this._boxOrderCreator.createRestrictedValidBoxOrder(box);
 
             // Get the index of the role for each box order.
             const indices = {
@@ -239,21 +244,21 @@ class Extension {
 
             if (indices.left !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.left, this._createRestrictedValidBoxOrder("left"), boxOrders.left),
+                    position: determineInsertionIndex(indices.left, this._boxOrderCreator.createRestrictedValidBoxOrder("left"), boxOrders.left),
                     box: "left"
                 };
             }
 
             if (indices.center !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.center, this._createRestrictedValidBoxOrder("center"), boxOrders.center),
+                    position: determineInsertionIndex(indices.center, this._boxOrderCreator.createRestrictedValidBoxOrder("center"), boxOrders.center),
                     box: "center"
                 };
             }
 
             if (indices.right !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.right, this._createRestrictedValidBoxOrder("right"), boxOrders.right),
+                    position: determineInsertionIndex(indices.right, this._boxOrderCreator.createRestrictedValidBoxOrder("right"), boxOrders.right),
                     box: "right"
                 };
             }
@@ -374,109 +379,13 @@ class Extension {
     }
 
     /**
-     * This function creates a valid box order for the given box.
-     * This means it returns a box order for the box, where only roles are
-     * included, which have their associated indicator container already in some
-     * box of the Gnome Shell top bar.
-     * @param {string} box - The box to return the valid box order for.
-     * Must be one of the following values:
-     * - "left"
-     * - "center"
-     * - "right"
-     * @returns {string[]} - The valid box order.
-     */
-    _createValidBoxOrder(box) {
-        // Get a resolved box order.
-        let boxOrder = this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv(`${box}-box-order`));
-
-        // Get the indicator containers (of the items) currently present in the
-        // Gnome Shell top bar.
-        const boxIndicatorContainers = [ ];
-
-        const addIndicatorContainersOfBox = (panelBox) => {
-            for (const indicatorContainer of panelBox.get_children()) {
-                boxIndicatorContainers.push(indicatorContainer);
-            }
-        };
-
-        addIndicatorContainersOfBox(Main.panel._leftBox);
-        addIndicatorContainersOfBox(Main.panel._centerBox);
-        addIndicatorContainersOfBox(Main.panel._rightBox);
-
-        // Create an indicator containers set from the indicator containers for
-        // fast easy access.
-        const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
-
-        // Go through the box order and only add items to the valid box order,
-        // where their indicator is present in the Gnome Shell top bar
-        // currently.
-        let validBoxOrder = [ ];
-        for (const role of boxOrder) {
-            // Get the indicator container associated with the current role.
-            const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
-
-            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) validBoxOrder.push(role);
-        }
-
-        return validBoxOrder;
-    }
-
-    /**
-     * This function creates a restricted valid box order for the given box.
-     * This means it returns a box order for the box, where only roles are
-     * included, which have their associated indicator container already in the
-     * specified box.
-     * @param {string} box - The box to return the valid box order for.
-     * Must be one of the following values:
-     * - "left"
-     * - "center"
-     * - "right"
-     * @returns {string[]} - The restricted valid box order.
-     */
-    _createRestrictedValidBoxOrder(box) {
-        // Get a resolved box order and get the indicator containers (of the
-        // items) which are currently present in the Gnome Shell top bar in the
-        // specified box.
-        let boxOrder = this._appIndicatorKStatusNotifierItemManager.createResolvedBoxOrder(this.settings.get_strv(`${box}-box-order`));
-        let boxIndicatorContainers;
-        switch (box) {
-            case "left":
-                boxIndicatorContainers = Main.panel._leftBox.get_children();
-                break;
-            case "center":
-                boxIndicatorContainers = Main.panel._centerBox.get_children();
-                break;
-            case "right":
-                boxIndicatorContainers = Main.panel._rightBox.get_children();
-                break;
-        }
-
-        // Create an indicator containers set from the indicator containers for
-        // fast easy access.
-        const boxIndicatorContainersSet = new Set(boxIndicatorContainers);
-
-        // Go through the box order and only add items to the restricted valid
-        // box order, where their indicator is present in the Gnome Shell top
-        // bar in the specified box currently.
-        let restrictedValidBoxOrder = [ ];
-        for (const role of boxOrder) {
-            // Get the indicator container associated with the current role.
-            const associatedIndicatorContainer = Main.panel.statusArea[role]?.container;
-
-            if (boxIndicatorContainersSet.has(associatedIndicatorContainer)) restrictedValidBoxOrder.push(role);
-        }
-
-        return restrictedValidBoxOrder;
-    }
-
-    /**
      * This method orders the top bar items of the specified box according to
      * the configured box orders.
      * @param {string} box - The box to order.
      */
     _orderTopBarItems(box) {
         // Get the valid box order.
-        const validBoxOrder = this._createValidBoxOrder(box);
+        const validBoxOrder = this._boxOrderCreator.createValidBoxOrder(box);
 
         // Get the relevant box of `Main.panel`.
         let panelBox;
