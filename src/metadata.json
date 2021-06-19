@@ -4,5 +4,6 @@
     "description": "Organize the items of the top (menu)bar.",
     "version": 1,
     "shell-version": [ "40" ],
-    "settings-schema": "org.gnome.shell.extensions.top-bar-organizer"
+    "settings-schema": "org.gnome.shell.extensions.top-bar-organizer",
+    "url": "https://gitlab.gnome.org/julianschacher/top-bar-organizer"
 }
