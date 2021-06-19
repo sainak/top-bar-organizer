@@ -85,6 +85,8 @@ class Extension {
     disable() {
         // Revert the overwrite of `Panel._addToPanelBox`.
         Panel.Panel.prototype._addToPanelBox = Panel.Panel.prototype._originalAddToPanelBox;
+        // Set `Panel._originalAddToPanelBox` to `undefined`.
+        Panel._originalAddToPanelBox = undefined;
 
         // Disconnect signals.
         for (const handlerId of this._settingsHandlerIds) {
