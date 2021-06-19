@@ -18,7 +18,7 @@ The `Tag` should be one of the following:
 
 - `Fix` - for a bug fix.
 - `Update` - for a backwards compatible enhancement.
-- `Feature` - for a new feature.
+- `Feature` (formerly also `New`) - for a new feature.
 - `Breaking` - for a backwards-incompatible enhancement or feature.
 - `Perf` - for a code change that improves performance.
 - `Refactor` - for a code change that neither fixes a bug nor adds a feature (nor is `Perf`).
