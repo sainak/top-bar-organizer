@@ -30,10 +30,11 @@ const BoxOrderCreator = Me.imports.extensionModules.BoxOrderCreator;
 
 class Extension {
     constructor() {
-        this.settings = ExtensionUtils.getSettings();
     }
 
     enable() {
+        this.settings = ExtensionUtils.getSettings();
+
         // Create an instance of AppIndicatorKStatusNotifierItemManager to handle AppIndicator/KStatusNotifierItem items.
         this._appIndicatorKStatusNotifierItemManager = new AppIndicatorKStatusNotifierItemManager.AppIndicatorKStatusNotifierItemManager();
 
