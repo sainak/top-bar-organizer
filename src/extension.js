@@ -248,21 +248,21 @@ class Extension {
 
             if (indices.left !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.left, this._boxOrderCreator.createRestrictedValidBoxOrder("left"), boxOrders.left),
+                    position: determineInsertionIndex(indices.left, this._boxOrderCreator.createRestrictedValidBoxOrder("left"), resolvedBoxOrders.left),
                     box: "left"
                 };
             }
 
             if (indices.center !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.center, this._boxOrderCreator.createRestrictedValidBoxOrder("center"), boxOrders.center),
+                    position: determineInsertionIndex(indices.center, this._boxOrderCreator.createRestrictedValidBoxOrder("center"), resolvedBoxOrders.center),
                     box: "center"
                 };
             }
 
             if (indices.right !== -1) {
                 return {
-                    position: determineInsertionIndex(indices.right, this._boxOrderCreator.createRestrictedValidBoxOrder("right"), boxOrders.right),
+                    position: determineInsertionIndex(indices.right, this._boxOrderCreator.createRestrictedValidBoxOrder("right"), resolvedBoxOrders.right),
                     box: "right"
                 };
             }
@@ -407,41 +407,13 @@ class Extension {
 
         /// Go through the items (or rather their roles) of the validBoxOrder
         /// and order the panelBox accordingly.
-        // Declare panelBoxChildCount here, because we might need it later.
-        let panelBoxChildCount;
-        switch (box) {
-            // If the left or center box is the target box, order form left to
-            // right.
-            case "left":
-            case "center":
-                for (let i = 0; i < validBoxOrder.length; i++) {
-                    const role = validBoxOrder[i];
-                    // Get the indicator container associated with the current
-                    // role.
-                    const associatedIndicatorContainer = Main.panel.statusArea[role].container;
+        for (let i = 0; i < validBoxOrder.length; i++) {
+            const role = validBoxOrder[i];
+            // Get the indicator container associated with the current role.
+            const associatedIndicatorContainer = Main.panel.statusArea[role].container;
 
-                    associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
-                    panelBox.insert_child_at_index(associatedIndicatorContainer, i);
-                }
-                break;
-            // If the right box is the target box, order from right to left.
-            // The order direction is important for the case, where the box
-            // order got set to a box order, which doesn't include all the roles
-            // to cover all items of the respective box.
-            // This could happen, when the box order gets set to a permutation
-            // of an outdated box order.
-            case "right":
-                panelBoxChildCount = Math.max(panelBox.get_children().length, validBoxOrder.length);
-                for (let i = 0; i < validBoxOrder.length; i++) {
-                    const role = validBoxOrder[validBoxOrder.length - 1 - i];
-                    // Get the indicator container associated with the current
-                    // role.
-                    const associatedIndicatorContainer = Main.panel.statusArea[role].container;
-
-                    associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
-                    panelBox.insert_child_at_index(associatedIndicatorContainer, panelBoxChildCount - 1 -i);
-                }
-                break;
+            associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
+            panelBox.insert_child_at_index(associatedIndicatorContainer, i);
         }
         // To handle the case, where the box order got set to a permutation
         // of an outdated box order, it would be wise, if the caller updated the
