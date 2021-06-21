@@ -430,7 +430,7 @@ class Extension {
             // This could happen, when the box order gets set to a permutation
             // of an outdated box order.
             case "right":
-                panelBoxChildCount = panelBox.get_children().length;
+                panelBoxChildCount = Math.max(panelBox.get_children().length, validBoxOrder.length);
                 for (let i = 0; i < validBoxOrder.length; i++) {
                     const role = validBoxOrder[validBoxOrder.length - 1 - i];
                     // Get the indicator container associated with the current role.
