@@ -35,7 +35,8 @@ class Extension {
     enable() {
         this.settings = ExtensionUtils.getSettings();
 
-        // Create an instance of AppIndicatorKStatusNotifierItemManager to handle AppIndicator/KStatusNotifierItem items.
+        // Create an instance of AppIndicatorKStatusNotifierItemManager to
+        // handle AppIndicator/KStatusNotifierItem items.
         this._appIndicatorKStatusNotifierItemManager = new AppIndicatorKStatusNotifierItemManager.AppIndicatorKStatusNotifierItemManager();
 
         // Create an instance of BoxOrderCreator for the creation of special box
@@ -433,7 +434,8 @@ class Extension {
                 panelBoxChildCount = Math.max(panelBox.get_children().length, validBoxOrder.length);
                 for (let i = 0; i < validBoxOrder.length; i++) {
                     const role = validBoxOrder[validBoxOrder.length - 1 - i];
-                    // Get the indicator container associated with the current role.
+                    // Get the indicator container associated with the current
+                    // role.
                     const associatedIndicatorContainer = Main.panel.statusArea[role].container;
 
                     associatedIndicatorContainer.get_parent().remove_child(associatedIndicatorContainer);
