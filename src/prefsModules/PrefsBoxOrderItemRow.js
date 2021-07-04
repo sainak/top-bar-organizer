@@ -31,7 +31,7 @@ var PrefsBoxOrderItemRow = GObject.registerClass({
     Template: Me.dir.get_child("prefs-box-order-item-row.ui").get_uri(),
     Children: ["item-name-display-label"]
 }, class PrefsBoxOrderItemRow extends Gtk.ListBoxRow {
-    _init(params = {}) {
+    _init(params = {}, scrollManager) {
         super._init(params);
 
         // Make `this` draggable by creating a drag source and adding it to
@@ -40,6 +40,10 @@ var PrefsBoxOrderItemRow = GObject.registerClass({
         dragSource.set_actions(Gdk.DragAction.MOVE);
         dragSource.connect("prepare", () => {
             return Gdk.ContentProvider.new_for_value(this);
+        });
+        // Stop all scrolling, which is due to this DND operation.
+        dragSource.connect("drag-end", () => {
+            scrollManager.stopScrollAll();
         });
         this.add_controller(dragSource);
 

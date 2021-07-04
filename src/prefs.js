@@ -27,6 +27,7 @@ const Me = ExtensionUtils.getCurrentExtension();
 
 const PrefsBoxOrderListEmptyPlaceholder = Me.imports.prefsModules.PrefsBoxOrderListEmptyPlaceholder;
 const PrefsBoxOrderItemRow = Me.imports.prefsModules.PrefsBoxOrderItemRow;
+const ScrollManager = Me.imports.prefsModules.ScrollManager;
 
 var PrefsWidget = GObject.registerClass({
     GTypeName: "PrefsWidget",
@@ -63,12 +64,33 @@ var PrefsWidget = GObject.registerClass({
             window.default_height = 750;
         });
 
+        // Scroll up or down, when a Drag-and-Drop operation is in progress and
+        // the user has their cursor either in the upper or lower 10% of this
+        // widget respectively.
+        this._scrollManager = new ScrollManager.ScrollManager(this);
+        let controller = new Gtk.DropControllerMotion();
+        controller.connect("motion", (_, x, y) => {
+            // If the pointer is currently in the upper ten percent of this
+            // widget, then scroll up.
+            if (y <= this.get_allocated_height() * 0.1) this._scrollManager.startScrollUp();
+            // If the pointer is currently in the lower ten percent of this
+            // widget, then scroll down.
+            else if (y >= this.get_allocated_height() * 0.9) this._scrollManager.startScrollDown();
+            // Otherwise stop scrolling.
+            else this._scrollManager.stopScrollAll();
+        });
+        controller.connect("leave", () => {
+            // Stop scrolling on leave.
+            this._scrollManager.stopScrollAll();
+        });
+        this.add_controller(controller);
+
         // Initialize the given `gtkListBox`.
         const initializeGtkListBox = (boxOrder, gtkListBox) => {
             // Add the items of the given configured box order as
             // GtkListBoxRows.
             for (const item of boxOrder) {
-                const listBoxRow = new PrefsBoxOrderItemRow.PrefsBoxOrderItemRow();
+                const listBoxRow = new PrefsBoxOrderItemRow.PrefsBoxOrderItemRow({}, this._scrollManager);
 
                 listBoxRow.item = item;
                 if (item.startsWith("appindicator-kstatusnotifieritem-")) {
