@@ -36,11 +36,32 @@ var PrefsWidget = GObject.registerClass({
         "center-box-order",
         "right-box-order"
     ]
-}, class PrefsWidget extends Gtk.Box {
+}, class PrefsWidget extends Gtk.ScrolledWindow {
     _init(params = {}) {
         super._init(params);
 
         this._settings = ExtensionUtils.getSettings();
+
+        // Never show a horizontal scrollbar.
+        // Achieved by setting the hscrollbar_policy to 2, while setting the
+        // vscrollbar_policy to 1 (the default value).
+        this.set_policy(2, 1);
+
+        // Set the default size of the preferences window to a sensible value on
+        // realize.
+        this.connect("realize", () => {
+            // Get the window.
+            const window = this.get_root();
+
+            // Use 500 and 750 for the default size.
+            // Those are the same values the Just Perfection Gnome Shell
+            // extension uses.
+            // It seems like those values only get used the first time the
+            // preferences window gets opened in a session. On all consecutive
+            // opens, the window is a bit larger than those values.
+            window.default_width = 500;
+            window.default_height = 750;
+        });
 
         // Initialize the given `gtkListBox`.
         const initializeGtkListBox = (boxOrder, gtkListBox) => {
