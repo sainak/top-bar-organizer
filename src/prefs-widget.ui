@@ -37,7 +37,7 @@
                     </object>
                 </child>
                 <child>
-                    <object class="GtkBox">
+                    <object class="GtkBox" id="left-box">
                         <property name="orientation">vertical</property>
                         <child>
                             <object class="GtkLabel">
@@ -49,16 +49,10 @@
                                 </attributes>
                             </object>
                         </child>
-                        <child>
-                            <object class="GtkListBox" id="left-box-order">
-                                <property name="selection-mode">none</property>
-                                <property name="show-separators">True</property>
-                            </object>
-                        </child>
                     </object>
                 </child>
                 <child>
-                    <object class="GtkBox">
+                    <object class="GtkBox" id="center-box">
                         <property name="orientation">vertical</property>
                         <child>
                             <object class="GtkLabel">
@@ -70,16 +64,10 @@
                                 </attributes>
                             </object>
                         </child>
-                        <child>
-                            <object class="GtkListBox" id="center-box-order">
-                                <property name="selection-mode">none</property>
-                                <property name="show-separators">True</property>
-                            </object>
-                        </child>
                     </object>
                 </child>
                 <child>
-                    <object class="GtkBox">
+                    <object class="GtkBox" id="right-box">
                         <property name="orientation">vertical</property>
                         <child>
                             <object class="GtkLabel">
@@ -89,12 +77,6 @@
                                 <attributes>
                                     <attribute name="weight" value="bold"/>
                                 </attributes>
-                            </object>
-                        </child>
-                        <child>
-                            <object class="GtkListBox" id="right-box-order">
-                                <property name="selection-mode">none</property>
-                                <property name="show-separators">True</property>
                             </object>
                         </child>
                     </object>

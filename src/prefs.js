@@ -25,6 +25,7 @@ const GObject = imports.gi.GObject;
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
 
+const PrefsBoxOrderListBox = Me.imports.prefsModules.PrefsBoxOrderListBox;
 const PrefsBoxOrderListEmptyPlaceholder = Me.imports.prefsModules.PrefsBoxOrderListEmptyPlaceholder;
 const PrefsBoxOrderItemRow = Me.imports.prefsModules.PrefsBoxOrderItemRow;
 const ScrollManager = Me.imports.prefsModules.ScrollManager;
@@ -33,9 +34,9 @@ var PrefsWidget = GObject.registerClass({
     GTypeName: "PrefsWidget",
     Template: Me.dir.get_child("prefs-widget.ui").get_uri(),
     InternalChildren: [
-        "left-box-order",
-        "center-box-order",
-        "right-box-order"
+        "left-box",
+        "center-box",
+        "right-box"
     ]
 }, class PrefsWidget extends Gtk.ScrolledWindow {
     _init(params = {}) {
@@ -85,6 +86,14 @@ var PrefsWidget = GObject.registerClass({
         });
         this.add_controller(controller);
 
+        // Add custom GTKListBoxes (PrefsBoxOrderListBoxes).
+        this._left_box_order = new PrefsBoxOrderListBox.PrefsBoxOrderListBox({}, "left-box-order");
+        this._left_box.append(this._left_box_order);
+        this._center_box_order = new PrefsBoxOrderListBox.PrefsBoxOrderListBox({}, "center-box-order");
+        this._center_box.append(this._center_box_order);
+        this._right_box_order = new PrefsBoxOrderListBox.PrefsBoxOrderListBox({}, "right-box-order");
+        this._right_box.append(this._right_box_order);
+
         // Initialize the given `gtkListBox`.
         const initializeGtkListBox = (boxOrder, gtkListBox) => {
             // Add the items of the given configured box order as
@@ -114,13 +123,6 @@ var PrefsWidget = GObject.registerClass({
         initializeGtkListBox(this._settings.get_strv("left-box-order"), this._left_box_order);
         initializeGtkListBox(this._settings.get_strv("center-box-order"), this._center_box_order);
         initializeGtkListBox(this._settings.get_strv("right-box-order"), this._right_box_order);
-
-        // Set the box order each GtkListBox is associated with.
-        // This is needed by the reordering of the GtkListBoxRows, so that the
-        // updated box orders can be saved.
-        this._left_box_order.boxOrder = "left-box-order";
-        this._center_box_order.boxOrder = "center-box-order";
-        this._right_box_order.boxOrder = "right-box-order";
     }
 });
 
