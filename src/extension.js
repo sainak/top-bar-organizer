@@ -353,6 +353,7 @@ class Extension {
                 // First get the role associated with the current indicator
                 // container.
                 const associatedRole = indicatorContainerRoleMap.get(indicatorContainer);
+                if (!associatedRole) continue;
 
                 // Handle an AppIndicator/KStatusNotifierItem item differently.
                 if (associatedRole.startsWith("appindicator-")) {
