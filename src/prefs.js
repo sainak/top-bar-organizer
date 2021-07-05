@@ -99,19 +99,7 @@ var PrefsWidget = GObject.registerClass({
             // Add the items of the given configured box order as
             // GtkListBoxRows.
             for (const item of boxOrder) {
-                const listBoxRow = new PrefsBoxOrderItemRow.PrefsBoxOrderItemRow({}, this._scrollManager);
-
-                listBoxRow.item = item;
-                if (item.startsWith("appindicator-kstatusnotifieritem-")) {
-                    // Set `item_name_display_label` of the `listBoxRow` to
-                    // something nicer, if the associated item is an
-                    // AppIndicator/KStatusNotifierItem item.
-                    listBoxRow.item_name_display_label.set_label(item.replace("appindicator-kstatusnotifieritem-", ""));
-                } else {
-                    // Otherwise just set the `item_name_display_label` of the
-                    // `listBoxRow` to `item`.
-                    listBoxRow.item_name_display_label.set_label(item);
-                }
+                const listBoxRow = new PrefsBoxOrderItemRow.PrefsBoxOrderItemRow({}, this._scrollManager, item);
                 gtkListBox.append(listBoxRow);
             }
 

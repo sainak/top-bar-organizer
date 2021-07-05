@@ -29,10 +29,12 @@ const Me = ExtensionUtils.getCurrentExtension();
 var PrefsBoxOrderItemRow = GObject.registerClass({
     GTypeName: "PrefsBoxOrderItemRow",
     Template: Me.dir.get_child("prefs-box-order-item-row.ui").get_uri(),
-    Children: ["item-name-display-label"]
+    InternalChildren: ["item-name-display-label"]
 }, class PrefsBoxOrderItemRow extends Gtk.ListBoxRow {
-    _init(params = {}, scrollManager) {
+    _init(params = {}, scrollManager, item) {
         super._init(params);
+
+        this._associateItem(item);
 
         // Make `this` draggable by creating a drag source and adding it to
         // `this`.
@@ -107,5 +109,19 @@ var PrefsBoxOrderItemRow = GObject.registerClass({
             if (ownListBox !== valueListBox) valueListBox.saveBoxOrderToSettings();
         });
         this.add_controller(dropTarget);
+    }
+
+    /**
+     * Associate `this` with an item.
+     * @param {String} item
+     */
+    _associateItem(item) {
+        this.item = item;
+
+        // Set `this._item_name_display_label` to something nicer, if the
+        // associated item is an AppIndicator/KStatusNotifierItem item.
+        if (item.startsWith("appindicator-kstatusnotifieritem-")) this._item_name_display_label.set_label(item.replace("appindicator-kstatusnotifieritem-", ""));
+        // Otherwise just set it to `item`.
+        else this._item_name_display_label.set_label(item);
     }
 });
