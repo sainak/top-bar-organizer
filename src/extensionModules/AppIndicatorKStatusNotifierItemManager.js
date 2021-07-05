@@ -53,7 +53,11 @@ var AppIndicatorKStatusNotifierItemManager = class AppIndicatorKStatusNotifierIt
     handleAppIndicatorKStatusNotifierItemItem(indicatorContainer, role, boxOrder, boxOrders, atToBeginning = false) {
         // Get the application the AppIndicator/KStatusNotifierItem is
         // associated with.
-        const application = indicatorContainer.get_child()._indicator.id;
+        let application = indicatorContainer.get_child()._indicator.id;
+
+        // Since the Dropbox client appends its PID to the id, drop the PID and
+        // the hyphen before it.
+        if (application.startsWith("dropbox-client-")) application = "dropbox-client";
 
         // Associate the role with the application.
         let roles = this._applicationRoleMap.get(application);
