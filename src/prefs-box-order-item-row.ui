@@ -32,7 +32,15 @@
                     </object>
                 </child>
                 <child>
-                    <object class="GtkLabel" id="item-name-display-label"/>
+                    <object class="GtkLabel" id="item-name-display-label">
+                        <property name="halign">start</property>
+                        <property name="hexpand">True</property>
+                    </object>
+                </child>
+                <child>
+                    <object class="GtkMenuButton" id="menu-button">
+                        <property name="icon-name">view-more-symbolic</property>
+                    </object>
                 </child>
             </object>
         </child>

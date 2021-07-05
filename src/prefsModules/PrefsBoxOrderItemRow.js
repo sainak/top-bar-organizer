@@ -21,6 +21,7 @@
 
 const Gtk = imports.gi.Gtk;
 const Gdk = imports.gi.Gdk;
+const Gio = imports.gi.Gio;
 const GObject = imports.gi.GObject;
 
 const ExtensionUtils = imports.misc.extensionUtils;
@@ -29,12 +30,16 @@ const Me = ExtensionUtils.getCurrentExtension();
 var PrefsBoxOrderItemRow = GObject.registerClass({
     GTypeName: "PrefsBoxOrderItemRow",
     Template: Me.dir.get_child("prefs-box-order-item-row.ui").get_uri(),
-    InternalChildren: ["item-name-display-label"]
+    InternalChildren: [
+        "item-name-display-label",
+        "menu-button"
+    ]
 }, class PrefsBoxOrderItemRow extends Gtk.ListBoxRow {
     _init(params = {}, scrollManager, item) {
         super._init(params);
 
         this._associateItem(item);
+        this._configureMenu();
 
         // Make `this` draggable by creating a drag source and adding it to
         // `this`.
@@ -123,5 +128,25 @@ var PrefsBoxOrderItemRow = GObject.registerClass({
         if (item.startsWith("appindicator-kstatusnotifieritem-")) this._item_name_display_label.set_label(item.replace("appindicator-kstatusnotifieritem-", ""));
         // Otherwise just set it to `item`.
         else this._item_name_display_label.set_label(item);
+    }
+
+    /**
+     * Configure the menu.
+     */
+    _configureMenu() {
+        let menu = new Gio.Menu();
+        menu.append("Forget", `prefsBoxOrderItemRow-${this.item}.forget`);
+        this._menu_button.set_menu_model(menu);
+
+        const forgetAction = new Gio.SimpleAction({ name: "forget" });
+        forgetAction.connect("activate", () => {
+            const parentListBox = this.get_parent();
+            parentListBox.remove(this);
+            parentListBox.saveBoxOrderToSettings();
+        });
+
+        const actionGroup = new Gio.SimpleActionGroup();
+        actionGroup.add_action(forgetAction);
+        this.insert_action_group(`prefsBoxOrderItemRow-${this.item}`, actionGroup);
     }
 });
