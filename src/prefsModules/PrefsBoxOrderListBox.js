@@ -37,6 +37,24 @@ var PrefsBoxOrderListBox = GObject.registerClass({
     _init(params = {}, boxOrder) {
         super._init(params);
 
+        this._settings = ExtensionUtils.getSettings();
+
         this.boxOrder = boxOrder;
+    }
+
+    /**
+     * Saves the box order represented by `this` (and its
+     * `PrefsBoxOrderItemRows`) to settings.
+     */
+    saveBoxOrderToSettings() {
+        let currentBoxOrder = [ ];
+        for (let potentialPrefsBoxOrderItemRow of this) {
+            // Only process PrefsBoxOrderItemRows.
+            if (potentialPrefsBoxOrderItemRow.constructor.$gtype.name !== "PrefsBoxOrderItemRow") continue;
+
+            const item = potentialPrefsBoxOrderItemRow.item;
+            currentBoxOrder.push(item);
+        }
+        this._settings.set_strv(this.boxOrder, currentBoxOrder);
     }
 });

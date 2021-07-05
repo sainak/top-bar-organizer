@@ -99,37 +99,12 @@ var PrefsBoxOrderItemRow = GObject.registerClass({
                 }
             }
 
-            /// Finally save the box orders to settings.
-            const settings = ExtensionUtils.getSettings();
-
-            let updatedBoxOrder = [ ];
-            for (let potentialListBoxRow of ownListBox) {
-                // Only process PrefsBoxOrderItemRows.
-                if (potentialListBoxRow.constructor.$gtype.name !== "PrefsBoxOrderItemRow") {
-                    continue;
-                }
-
-                const item = potentialListBoxRow.item;
-                updatedBoxOrder.push(item);
-            }
-            settings.set_strv(ownListBox.boxOrder, updatedBoxOrder);
-
+            /// Finally save the box order(/s) to settings.
+            ownListBox.saveBoxOrderToSettings();
             // If the list boxes of `this` and the drop value were different,
             // save an updated box order for the list were the drop value was in
             // as well.
-            if (ownListBox !== valueListBox) {
-                let updatedBoxOrder = [ ];
-                for (let potentialListBoxRow of valueListBox) {
-                    // Only process PrefsBoxOrderItemRows.
-                    if (potentialListBoxRow.constructor.$gtype.name !== "PrefsBoxOrderItemRow") {
-                        continue;
-                    }
-
-                    const item = potentialListBoxRow.item;
-                    updatedBoxOrder.push(item);
-                }
-                settings.set_strv(valueListBox.boxOrder, updatedBoxOrder);
-            }
+            if (ownListBox !== valueListBox) valueListBox.saveBoxOrderToSettings();
         });
         this.add_controller(dropTarget);
     }
